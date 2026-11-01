@@ -29,7 +29,7 @@ jobs:
       - name: Install tools
         run: |
           brew install xcodegen zstd spirv-cross
-          pip install lz4 capstone fonttools backports.zstd gdown
+          pip install lz4 capstone fonttools backports.zstd
 
       - name: Show disk space
         run: df -h /
@@ -53,19 +53,22 @@ jobs:
             echo "GAME_URL secret is missing"
             exit 1
           fi
+          URL="${GAME_URL/dl=0/dl=1}"
+          case "$URL" in
+            *dl=1*) ;;
+            *\?*) URL="$URL&dl=1" ;;
+            *) URL="$URL?dl=1" ;;
+          esac
           mkdir -p game
-          gdown "$GAME_URL" -O game/
-          ls -lh game
+          OUT="game/Pokemon Sword [0100ABF008968000][v0].xci"
+          curl -L --fail --silent --show-error -o "$OUT" "$URL"
+          SIZE=$(stat -f%z "$OUT")
+          echo "Downloaded bytes: $SIZE"
+          if [ "$SIZE" -lt 100000000 ]; then
+            echo "File is too small, the download failed"
+            exit 1
+          fi
           df -h /
-
-      - name: Rename game file
-        run: |
-          cd game
-          for f in *.xci; do
-            [ -e "$f" ] || continue
-            mv "$f" "Pokemon Sword [0100ABF008968000][v0].xci"
-          done
-          ls -lh
 
       - name: Build IPA
         run: |
