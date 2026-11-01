@@ -28,7 +28,7 @@ jobs:
 
       - name: Install tools
         run: |
-          brew install xcodegen zstd spirv-cross
+          brew install xcodegen zstd spirv-cross glslang
           pip install lz4 capstone fonttools backports.zstd
 
       - name: Show disk space
