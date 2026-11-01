@@ -58,6 +58,15 @@ jobs:
           ls -lh game
           df -h /
 
+      - name: Rename game file
+        run: |
+          cd game
+          for f in *.xci; do
+            [ -e "$f" ] || continue
+            mv "$f" "Pokemon Sword [0100ABF008968000][v0].xci"
+          done
+          ls -lh
+
       - name: Build IPA
         run: |
           python3 scripts/build_ipa_from_nsp.py game -k ~/.switch/prod.keys
