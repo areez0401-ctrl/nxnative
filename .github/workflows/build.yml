@@ -1,6 +1,9 @@
 name: Build nxnative IPA
 on:
 workflow_dispatch:
+push:
+branches:
+- no-bc
 jobs:
 build:
 runs-on: macos-latest
