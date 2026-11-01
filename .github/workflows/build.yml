@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
           mkdir -p game
-          gdown --fuzzy "$GAME_URL" -O game/
+          gdown "$GAME_URL" -O game/
           ls -lh game
           df -h /
 
