@@ -28,7 +28,6 @@ echo "GAME_URL=$GAME_URL" >> $GITHUB_ENV
 - name: Run Build Process
 run: |
 echo "Starting nxnative build..."
-# Build execution steps run here
 - name: Upload IPA Artifact
 uses: actions/upload-artifact@v4
 with:
