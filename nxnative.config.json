@@ -1,0 +1,38 @@
+{
+"game": {
+"title_id": "01008DB008C2C000",
+"name": "Pokémon Sword",
+"target_fps": 30,
+"resolution_scale": 0.75
+},
+"gpu_translation": {
+"backend": "Metal",
+"texture_recompression": {
+"enable_bc_to_astc": true,
+"astc_block_size": "6x6",
+"cache_textures_on_disk": true,
+"texture_pool_limit_mb": 1500
+},
+"shaders": {
+"precompile_pipelines": true,
+"async_compilation": true,
+"fast_math": true
+},
+"shadows": {
+"cascade_resolution_override": 512,
+"max_shadow_distance": 40.0
+}
+},
+"memory_management": {
+"enable_extended_addressing": true,
+"aggressive_gc_interval_sec": 45,
+"nvn_heap_limit_mb": 2800,
+"purge_unused_vram_on_scene_change": true
+},
+"hacks": {
+"disable_dynamic_resolution_scaler": true,
+"disable_depth_of_field": true,
+"disable_bloom_blur_pass": false,
+"skip_unsupported_nvn_queries": true
+}
+}
