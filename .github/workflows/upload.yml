@@ -1,0 +1,56 @@
+name: Upload IPA to Dropbox
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the finished build"
+        required: true
+permissions:
+  actions: read
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the IPA from the finished run
+        uses: actions/download-artifact@v4
+        with:
+          name: nxnative-ipa
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ipa
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Upload to Dropbox
+        env:
+          DROPBOX_TOKEN: ${{ secrets.DROPBOX_TOKEN }}
+        run: |
+          pip install dropbox
+          python3 - <<'EOF'
+          import os, glob
+          import dropbox
+          from dropbox.files import UploadSessionCursor, CommitInfo, WriteMode
+
+          dbx = dropbox.Dropbox(os.environ["DROPBOX_TOKEN"], timeout=300)
+          path = glob.glob("ipa/**/*.ipa", recursive=True)[0]
+          size = os.path.getsize(path)
+          print("Uploading", path, size, "bytes")
+          CH = 64 * 1024 * 1024
+          dest = "/" + os.path.basename(path)
+          with open(path, "rb") as f:
+              sess = dbx.files_upload_session_start(f.read(CH))
+              cursor = UploadSessionCursor(session_id=sess.session_id, offset=f.tell())
+              commit = CommitInfo(path=dest, mode=WriteMode.overwrite)
+              while True:
+                  if size - f.tell() <= CH:
+                      dbx.files_upload_session_finish(f.read(CH), cursor, commit)
+                      break
+                  dbx.files_upload_session_append_v2(f.read(CH), cursor)
+                  cursor.offset = f.tell()
+                  print(cursor.offset * 100 // size, "%")
+          print("Done")
+          EOF
