@@ -1,10 +1,15 @@
 name: Build nxnative IPA
 on:
   workflow_dispatch:
+    inputs:
+      update_version:
+        description: "Update version number from the update file name (leave empty for none)"
+        required: false
+        default: ""
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 180
+    timeout-minutes: 330
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,7 +65,7 @@ jobs:
             *) URL="$URL?dl=1" ;;
           esac
           mkdir -p game
-          OUT="game/Pokemon Sword [0100ABF008968000][v0].xci"
+          OUT="game/Pokemon Legends Z-A [0100F43008C44000][v0].xci"
           curl -L --fail --silent --show-error -o "$OUT" "$URL"
           SIZE=$(stat -f%z "$OUT")
           echo "Downloaded bytes: $SIZE"
@@ -68,6 +73,33 @@ jobs:
             echo "File is too small, the download failed"
             exit 1
           fi
+          df -h /
+
+      - name: Download update (optional)
+        if: ${{ inputs.update_version != '' }}
+        env:
+          UPDATE_URL: ${{ secrets.UPDATE_URL }}
+          UPDATE_VERSION: ${{ inputs.update_version }}
+        run: |
+          if [ -z "$UPDATE_URL" ]; then
+            echo "UPDATE_URL secret is missing"
+            exit 1
+          fi
+          URL="${UPDATE_URL/dl=0/dl=1}"
+          case "$URL" in
+            *dl=1*) ;;
+            *\?*) URL="$URL&dl=1" ;;
+            *) URL="$URL?dl=1" ;;
+          esac
+          OUT="game/Pokemon Legends Z-A [0100F43008C44800][v${UPDATE_VERSION}].nsp"
+          curl -L --fail --silent --show-error -o "$OUT" "$URL"
+          SIZE=$(stat -f%z "$OUT")
+          echo "Update bytes: $SIZE"
+          if [ "$SIZE" -lt 10000000 ]; then
+            echo "Update file is too small, the download failed"
+            exit 1
+          fi
+          ls -lh game
           df -h /
 
       - name: Build IPA
