@@ -2,10 +2,10 @@ name: Build nxnative IPA
 on:
   workflow_dispatch:
     inputs:
-      update_version:
-        description: "Update version number from the update file name (leave empty for none)"
-        required: false
-        default: ""
+      game_version:
+        description: "Version number of the game file (2.0.2 = 393216)"
+        required: true
+        default: "393216"
 jobs:
   build:
     runs-on: macos-15
@@ -34,7 +34,7 @@ jobs:
       - name: Install tools
         run: |
           brew install xcodegen zstd spirv-cross glslang
-          pip install lz4 capstone fonttools backports.zstd
+          pip install lz4 capstone fonttools backports.zstd gdown
 
       - name: Show disk space
         run: df -h /
@@ -58,49 +58,32 @@ jobs:
             echo "GAME_URL secret is missing"
             exit 1
           fi
-          URL="${GAME_URL/dl=0/dl=1}"
-          case "$URL" in
-            *dl=1*) ;;
-            *\?*) URL="$URL&dl=1" ;;
-            *) URL="$URL?dl=1" ;;
-          esac
           mkdir -p game
-          OUT="game/Pokemon Legends Z-A [0100F43008C44000][v0].xci"
-          curl -L --fail --silent --show-error -o "$OUT" "$URL"
-          SIZE=$(stat -f%z "$OUT")
-          echo "Downloaded bytes: $SIZE"
+          gdown "$GAME_URL" -O game/
+          ls -lh game
+          df -h /
+
+      - name: Name the game file
+        env:
+          GAME_VERSION: ${{ inputs.game_version }}
+        run: |
+          cd game
+          FILE=$(ls -S | head -n 1)
+          EXT="${FILE##*.}"
+          case "$EXT" in
+            xci|nsp) ;;
+            *) echo "Unsupported file type: $EXT"; exit 1 ;;
+          esac
+          SIZE=$(stat -f%z "$FILE")
           if [ "$SIZE" -lt 100000000 ]; then
             echo "File is too small, the download failed"
             exit 1
           fi
-          df -h /
-
-      - name: Download update (optional)
-        if: ${{ inputs.update_version != '' }}
-        env:
-          UPDATE_URL: ${{ secrets.UPDATE_URL }}
-          UPDATE_VERSION: ${{ inputs.update_version }}
-        run: |
-          if [ -z "$UPDATE_URL" ]; then
-            echo "UPDATE_URL secret is missing"
-            exit 1
+          NEW="Pokemon Legends Z-A [0100F43008C44000][v${GAME_VERSION}].${EXT}"
+          if [ "$FILE" != "$NEW" ]; then
+            mv "$FILE" "$NEW"
           fi
-          URL="${UPDATE_URL/dl=0/dl=1}"
-          case "$URL" in
-            *dl=1*) ;;
-            *\?*) URL="$URL&dl=1" ;;
-            *) URL="$URL?dl=1" ;;
-          esac
-          OUT="game/Pokemon Legends Z-A [0100F43008C44800][v${UPDATE_VERSION}].nsp"
-          curl -L --fail --silent --show-error -o "$OUT" "$URL"
-          SIZE=$(stat -f%z "$OUT")
-          echo "Update bytes: $SIZE"
-          if [ "$SIZE" -lt 10000000 ]; then
-            echo "Update file is too small, the download failed"
-            exit 1
-          fi
-          ls -lh game
-          df -h /
+          ls -lh
 
       - name: Build IPA
         run: |
