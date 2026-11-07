@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 350
 
     steps:
@@ -222,24 +222,62 @@ jobs:
               print(f"{p.name}: {p.stat().st_size:,} bytes")
           PY
 
-      - name: Show disk space
-        run: df -h /
+      - name: Check tools and script options
+        shell: bash
+        run: |
+          git log -1 --oneline || true
+          for t in xcodegen spirv-cross zstd unar glslangValidator xcrun; do
+            if command -v "$t" >/dev/null 2>&1; then
+              echo "found: $t"
+            else
+              echo "MISSING: $t"
+            fi
+          done
+          df -h /
+          python3 scripts/build_ipa_from_nsp.py --help || true
 
       - name: Build IPA
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
+          set -o pipefail
           WORK="$RUNNER_TEMP/nxnative"
           GAME_DIR="$RUNNER_TEMP/GameFiles"
+          LOG="$RUNNER_TEMP/build.log"
 
-          python3 scripts/build_ipa_from_nsp.py \
-            "$GAME_DIR" \
-            -k "$WORK/prod.keys" \
-            --allow-other-metal
+          HELP="$(python3 scripts/build_ipa_from_nsp.py --help 2>&1 || true)"
+          EXTRA_FLAGS=""
+          case "$HELP" in
+            *"--allow-other-metal"*)
+              EXTRA_FLAGS="--allow-other-metal"
+              echo "This script supports --allow-other-metal, using it"
+              ;;
+            *)
+              echo "This script has no --allow-other-metal option, skipping it"
+              ;;
+          esac
 
-          IPA="$(find "$GAME_DIR" -maxdepth 1 -name '*.ipa' | head -n 1)"
+          run_build() {
+            python3 scripts/build_ipa_from_nsp.py "$GAME_DIR" -k "$WORK/prod.keys" $1 2>&1 | tee "$LOG"
+            return ${PIPESTATUS[0]}
+          }
+
+          if ! run_build "$EXTRA_FLAGS"; then
+            if grep -q -- "--provisional" "$LOG"; then
+              echo "The script asked for --provisional, retrying with it"
+              if ! run_build "$EXTRA_FLAGS --provisional"; then
+                echo "::error::The build failed, see the log above"
+                exit 1
+              fi
+            else
+              echo "::error::The build failed, see the log above"
+              exit 1
+            fi
+          fi
+
+          IPA="$(find "$GAME_DIR" -maxdepth 2 -name '*.ipa' | head -n 1)"
           if [ -z "$IPA" ]; then
-            echo "::error::The build did not produce an IPA"
+            echo "::error::The build finished but no IPA was found"
             exit 1
           fi
           cp "$IPA" "$RUNNER_TEMP/NxNative.ipa"
