@@ -24,6 +24,8 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 350
+    env:
+      DM_GAME: "0100F43008C44000"
 
     steps:
       - name: Checkout BC fallback version
@@ -235,6 +237,19 @@ jobs:
           done
           df -h /
           python3 scripts/build_ipa_from_nsp.py --help || true
+
+      - name: Update shader toolchain lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHAIN="$(find . -name dmsh_chain.py -type f -print -quit)"
+          if [ -z "$CHAIN" ]; then
+            echo "::error::Could not find dmsh_chain.py"
+            exit 1
+          fi
+          echo "Using $CHAIN for profile $DM_GAME"
+          python3 "$CHAIN" --update-lock
+          python3 "$CHAIN" --header || echo "--header did not run, continuing"
 
       - name: Build IPA
         shell: bash
